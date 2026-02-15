@@ -69,9 +69,10 @@ func newAgentListCmd() *cobra.Command {
 
 func newAgentGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id|slug|publicId>",
-		Short: "Get agent details",
-		Args:  cobra.ExactArgs(1),
+		Use:               "get <id|slug|publicId>",
+		Short:             "Get agent details",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAgents,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -150,9 +151,10 @@ func newAgentUpdateCmd() *cobra.Command {
 	var name, slug, status string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update an agent",
-		Args:  cobra.ExactArgs(1),
+		Use:               "update <id>",
+		Short:             "Update an agent",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAgents,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -195,9 +197,10 @@ func newAgentUpdateCmd() *cobra.Command {
 
 func newAgentDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete an agent (admin only)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "delete <id>",
+		Short:             "Delete an agent (admin only)",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAgents,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()

@@ -10,9 +10,10 @@ func newConnectCmd() *cobra.Command {
 	var configID, environment string
 
 	cmd := &cobra.Command{
-		Use:   "connect <agent-slug>",
-		Short: "Get LiveKit connection details for an agent",
-		Args:  cobra.ExactArgs(1),
+		Use:               "connect <agent-slug>",
+		Short:             "Get LiveKit connection details for an agent",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAgents,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireClient()

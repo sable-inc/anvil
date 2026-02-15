@@ -83,9 +83,10 @@ func newConfigListCmd() *cobra.Command {
 
 func newConfigGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <config-id>",
-		Short: "Get an agent config version",
-		Args:  cobra.ExactArgs(1),
+		Use:               "get <config-id>",
+		Short:             "Get an agent config version",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeConfigs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -126,10 +127,11 @@ func newConfigPullCmd() *cobra.Command {
 	var outFile string
 
 	cmd := &cobra.Command{
-		Use:   "pull <config-id>",
-		Short: "Download an agent config as YAML",
-		Long:  "Fetches a config version from the API and outputs it as a YAML file.\nUse --output to write to a file, or pipe stdout.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "pull <config-id>",
+		Short:             "Download an agent config as YAML",
+		Long:              "Fetches a config version from the API and outputs it as a YAML file.\nUse --output to write to a file, or pipe stdout.",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeConfigs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()

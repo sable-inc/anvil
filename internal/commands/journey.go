@@ -93,9 +93,10 @@ func newJourneyListCmd() *cobra.Command {
 
 func newJourneyGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id|slug|publicId>",
-		Short: "Get journey details (with moments and transitions)",
-		Args:  cobra.ExactArgs(1),
+		Use:               "get <id|slug|publicId>",
+		Short:             "Get journey details (with moments and transitions)",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeJourneys,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -175,9 +176,10 @@ func newJourneyUpdateCmd() *cobra.Command {
 	var name, slug, description string
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a journey",
-		Args:  cobra.ExactArgs(1),
+		Use:               "update <id>",
+		Short:             "Update a journey",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeJourneys,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -220,9 +222,10 @@ func newJourneyUpdateCmd() *cobra.Command {
 
 func newJourneyDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a journey",
-		Args:  cobra.ExactArgs(1),
+		Use:               "delete <id>",
+		Short:             "Delete a journey",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeJourneys,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()

@@ -96,9 +96,10 @@ func newKBListCmd() *cobra.Command {
 
 func newKBGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get knowledge base item details",
-		Args:  cobra.ExactArgs(1),
+		Use:               "get <id>",
+		Short:             "Get knowledge base item details",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeKBItems,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -287,9 +288,10 @@ func newKBImportSitemapCmd() *cobra.Command {
 
 func newKBSyncCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync <id>",
-		Short: "Sync a knowledge base item to the vector store",
-		Args:  cobra.ExactArgs(1),
+		Use:               "sync <id>",
+		Short:             "Sync a knowledge base item to the vector store",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeKBItems,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -361,9 +363,10 @@ func newKBSyncAllCmd() *cobra.Command {
 
 func newKBCrawlCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "crawl <id>",
-		Short: "Re-crawl a URL knowledge base item",
-		Args:  cobra.ExactArgs(1),
+		Use:               "crawl <id>",
+		Short:             "Re-crawl a URL knowledge base item",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeKBItems,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()
@@ -394,9 +397,10 @@ func newKBCrawlCmd() *cobra.Command {
 
 func newKBDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a knowledge base item",
-		Args:  cobra.ExactArgs(1),
+		Use:               "delete <id>",
+		Short:             "Delete a knowledge base item",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeKBItems,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			a := AppFrom(cmd)
 			client, err := a.RequireAuth()

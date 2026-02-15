@@ -109,6 +109,9 @@ func NewRoot() *cobra.Command {
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output")
 	flags.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 
+	// Register flag completions for global flags.
+	_ = root.RegisterFlagCompletionFunc("format", completeFormat)
+
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newAuthCmd())
 	root.AddCommand(newHealthCmd())
