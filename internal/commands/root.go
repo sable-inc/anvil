@@ -111,6 +111,13 @@ func NewRoot() *cobra.Command {
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newAuthCmd())
+	root.AddCommand(newHealthCmd())
+	root.AddCommand(newAgentCmd())
+	root.AddCommand(newJourneyCmd())
+	root.AddCommand(newTranscriptCmd())
+	root.AddCommand(newAnalyticsCmd())
+	root.AddCommand(newConnectCmd())
+	root.AddCommand(newRawAPICmd())
 
 	return root
 }

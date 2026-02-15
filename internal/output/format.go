@@ -3,7 +3,6 @@ package output
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"gopkg.in/yaml.v3"
@@ -49,14 +48,10 @@ func (f *yamlFormatter) Format(w io.Writer, v any) error {
 	return err
 }
 
-// tableFormatter is a placeholder that falls back to JSON.
-// Phase 3 will replace this with Lip Gloss table rendering.
+// tableFormatter falls back to JSON for unstructured data.
+// Commands should prefer output.Write() with a Table for proper table rendering.
 type tableFormatter struct{}
 
 func (f *tableFormatter) Format(w io.Writer, v any) error {
-	// TODO(phase3): Replace with Lip Gloss table rendering.
-	if _, err := fmt.Fprintln(w, "# Table output (coming soon — showing JSON)"); err != nil {
-		return err
-	}
 	return (&jsonFormatter{}).Format(w, v)
 }

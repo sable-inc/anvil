@@ -49,16 +49,22 @@ func (a *App) Client() *api.Client {
 	return a.client
 }
 
-// RequireAuth returns the API client or an error if not authenticated.
-func (a *App) RequireAuth() (*api.Client, error) {
-	if a.Token == "" {
-		return nil, fmt.Errorf("not authenticated — run 'anvil auth login' first")
-	}
+// RequireClient returns the API client or an error if no API URL is configured.
+// Use for endpoints that don't require authentication (health, connection-details).
+func (a *App) RequireClient() (*api.Client, error) {
 	c := a.Client()
 	if c == nil {
 		return nil, fmt.Errorf("no API URL configured — set --api-url or api_url in config")
 	}
 	return c, nil
+}
+
+// RequireAuth returns the API client or an error if not authenticated.
+func (a *App) RequireAuth() (*api.Client, error) {
+	if a.Token == "" {
+		return nil, fmt.Errorf("not authenticated — run 'anvil auth login' first")
+	}
+	return a.RequireClient()
 }
 
 // WithOutput sets the standard output writer.
