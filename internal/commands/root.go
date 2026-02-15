@@ -38,7 +38,7 @@ func NewRoot() *cobra.Command {
 		Long:  "Anvil is the command-line interface for the Sable AI voice agent platform.\nManage agents, configs, deployments, knowledge bases, and more.",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Skip wiring for commands that don't need the App.
-			if cmd.Name() == "completion" || cmd.Name() == "help" {
+			if cmd.Name() == "completion" || cmd.Name() == "help" || cmd.Name() == "update" {
 				return nil
 			}
 			// Settings subcommands don't need API wiring.
@@ -134,6 +134,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newMCPCmd())
 	root.AddCommand(newCompletionCmd())
 	root.AddCommand(newSettingsCmd())
+	root.AddCommand(newUpdateCmd())
 
 	return root
 }
