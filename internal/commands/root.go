@@ -117,6 +117,8 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newTranscriptCmd())
 	root.AddCommand(newAnalyticsCmd())
 	root.AddCommand(newConnectCmd())
+	root.AddCommand(newKBCmd())
+	root.AddCommand(newConfigCmd())
 	root.AddCommand(newRawAPICmd())
 
 	return root

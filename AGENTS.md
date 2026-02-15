@@ -84,8 +84,39 @@ if api.IsNotFound(err) {
 | **output** | Format rendering | Nothing (leaf) |
 | **version** | Build info | Nothing (leaf) |
 | **auth** | Credential storage | config (for paths) |
-| **configascode** | YAML DSL validation/conversion | api (for types) |
+| **configascode** | YAML DSL validation/conversion | Nothing (leaf) |
 | **mcp** | MCP protocol | commands (reuses handlers) |
+
+## Config-as-Code System
+
+The `configascode` package provides a local config management engine:
+
+- **schema.go** — Go types mirroring the sable-api `AgentConfig` Zod schema (snake_case fields)
+- **validate.go** — Local validation rules matching sable-api's `superRefine` cross-field checks
+- **convert.go** — Bidirectional YAML <-> JSON conversion with `ConfigFile` wrapper type
+- **diff.go** — Structured diff engine comparing local YAML against remote API config
+
+### Validation Rules
+
+The validator mirrors all 13 sable-api cross-field rules:
+1. ElevenLabs TTS requires `voice_id` and `model`
+2. None/OpenAI TTS must have null `voice_id` and `model`
+3. STT provider must match enabled sub-providers
+4. Vision proactive requires vision enabled
+5. Browser streaming requires browser enabled
+6. RAG enabled requires an index source
+7. Embeddings dimension must match model
+
+### Config File Format
+
+```yaml
+agent: my-agent          # Optional: agent slug
+org_id: 42               # Optional: organization ID
+config:
+  name: "My Agent"
+  environment: "production"
+  # ... full AgentConfig fields
+```
 
 ## Adding a New Command
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/sable-inc/anvil/internal/auth"
@@ -411,6 +412,299 @@ func TestRawAPI_Post(t *testing.T) {
 	received, _ := data["received"].(map[string]any)
 	if received["key"] != "value" {
 		t.Errorf("received.key = %v, want value", received["key"])
+	}
+}
+
+// --- Knowledge Base ---
+
+func TestKBList(t *testing.T) {
+	items := []map[string]any{
+		{"id": 1, "name": "Manual.pdf", "type": "document", "status": "ready", "chunkCount": 10, "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z"},
+		{"id": 2, "name": "FAQ Page", "type": "url", "status": "ready", "sourceUrl": "https://example.com/faq", "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z"},
+	}
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"GET /knowledge-base": map[string]any{"items": items},
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "list", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("kb list error: %v", err)
+	}
+	if out == "" {
+		t.Error("expected output")
+	}
+}
+
+func TestKBGet(t *testing.T) {
+	item := map[string]any{
+		"id": 1, "name": "Manual.pdf", "type": "document", "status": "ready",
+		"enabled": true, "chunkCount": 10, "wordCount": 5000,
+		"createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z",
+	}
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"GET /knowledge-base/1": map[string]any{"item": item},
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "get", "1", "--api-url", srv.URL, "--format", "json")
+	if err != nil {
+		t.Fatalf("kb get error: %v", err)
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("JSON parse: %v", err)
+	}
+	if data["name"] != "Manual.pdf" {
+		t.Errorf("name = %v, want Manual.pdf", data["name"])
+	}
+}
+
+func TestKBSearch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "POST" && r.URL.Path == "/knowledge-base/search" {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"query": "test query",
+				"results": []map[string]any{
+					{"id": "kb-1-0", "score": 0.95, "content": "Result content", "metadata": map[string]any{}},
+				},
+			})
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "search", "test query", "--api-url", srv.URL, "--format", "json")
+	if err != nil {
+		t.Fatalf("kb search error: %v", err)
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("JSON parse: %v", err)
+	}
+	if data["query"] != "test query" {
+		t.Errorf("query = %v, want 'test query'", data["query"])
+	}
+}
+
+func TestKBImportURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "POST" && r.URL.Path == "/knowledge-base/url" {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"item": map[string]any{
+					"id": 99, "name": "Imported", "type": "url", "status": "pending",
+					"sourceUrl": "https://example.com", "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z",
+				},
+			})
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "import-url", "https://example.com", "--api-url", srv.URL, "--format", "json")
+	if err != nil {
+		t.Fatalf("kb import-url error: %v", err)
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("JSON parse: %v", err)
+	}
+	if data["name"] != "Imported" {
+		t.Errorf("name = %v, want Imported", data["name"])
+	}
+}
+
+func TestKBDelete(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "DELETE" && r.URL.Path == "/knowledge-base/1" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "delete", "1", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("kb delete error: %v", err)
+	}
+	if out == "" {
+		t.Error("expected output")
+	}
+}
+
+func TestKBJob(t *testing.T) {
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"GET /knowledge-base/jobs/job_123": map[string]any{
+			"jobId":  "job_123",
+			"status": "processing",
+			"progress": map[string]any{
+				"stage": "crawling", "progress": 45, "message": "Processing 50/100 URLs",
+				"urlsDiscovered": 100, "urlsProcessed": 50,
+			},
+		},
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "kb", "job", "job_123", "--api-url", srv.URL, "--format", "json")
+	if err != nil {
+		t.Fatalf("kb job error: %v", err)
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("JSON parse: %v", err)
+	}
+	if data["status"] != "processing" {
+		t.Errorf("status = %v, want processing", data["status"])
+	}
+}
+
+// --- Config ---
+
+func TestConfigList(t *testing.T) {
+	versions := []map[string]any{
+		{"id": "uuid-1", "orgId": 1, "status": "draft", "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z"},
+	}
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"GET /agent-configs": map[string]any{"configVersions": versions},
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "config", "list", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("config list error: %v", err)
+	}
+	if out == "" {
+		t.Error("expected output")
+	}
+}
+
+func TestConfigGet(t *testing.T) {
+	cv := map[string]any{
+		"id": "uuid-1", "orgId": 1, "status": "draft",
+		"config":    map[string]any{"name": "Test Config"},
+		"createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z",
+	}
+	srv := httptest.NewServer(jsonHandler(map[string]any{
+		"GET /agent-configs/uuid-1": map[string]any{"configVersion": cv},
+	}))
+	defer srv.Close()
+
+	testEnv(t)
+	out, _, err := runCmd(t, "config", "get", "uuid-1", "--api-url", srv.URL, "--format", "json")
+	if err != nil {
+		t.Fatalf("config get error: %v", err)
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(out), &data); err != nil {
+		t.Fatalf("JSON parse: %v", err)
+	}
+	if data["status"] != "draft" {
+		t.Errorf("status = %v, want draft", data["status"])
+	}
+}
+
+func TestConfigValidate(t *testing.T) {
+	// Write a valid YAML config to a temp file.
+	cfgYAML := `config:
+  name: "Test"
+  greeting_instructions: "Hello"
+  environment: "development"
+  custom_tools: false
+  llm:
+    model: "gpt-4o-realtime-preview"
+    modalities: ["text", "audio"]
+    temperature: 0.7
+    turn_detection:
+      type: "server_vad"
+      threshold: 0.5
+      silence_duration_ms: 500
+  stt:
+    provider: "openai"
+    openai:
+      enabled: true
+      model: "gpt-4o-mini-transcribe-2025-12-15"
+    deepgram:
+      enabled: false
+      model: "nova-3"
+      language: "multi"
+      interim_results: false
+      punctuate: false
+      smart_format: false
+  tts:
+    provider: "none"
+    voice_id: null
+    model: null
+  room:
+    noise_cancellation: false
+    video_enabled: false
+    transcription_enabled: true
+  components:
+    browser:
+      enabled: false
+      enable_streaming: false
+      mcp_server_dir: null
+    vision:
+      enabled: false
+      proactive: false
+      threshold: 0.5
+      cooldown: 10
+      debug_logs: false
+    transcription:
+      enabled: true
+      utterance_finalize_delay: 1.0
+      transcript_prefix: null
+    transcription_logger:
+      enabled: false
+      module_id: null
+      org_id: null
+    memory:
+      enabled: false
+      summarization_model: "gpt-4o-mini"
+    rag:
+      enabled: false
+      pinecone_index_name: null
+      min_score: 0.5
+      index_path: null
+      rrf_k: 60
+      search_top_n: 100
+      search_k: 1000
+      embeddings_model: "text-embedding-3-small"
+      embeddings_dimension: 1536
+      result_limit: 5
+      no_results_message: "No results found."
+    pip:
+      enabled: false
+`
+	tmpDir := t.TempDir()
+	cfgPath := tmpDir + "/config.yaml"
+	if err := os.WriteFile(cfgPath, []byte(cfgYAML), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	out, _, err := runCmd(t, "config", "validate", cfgPath)
+	if err != nil {
+		t.Fatalf("config validate error: %v", err)
+	}
+	if out == "" {
+		t.Error("expected output")
 	}
 }
 
