@@ -1,7 +1,7 @@
 .PHONY: build test lint generate install clean check
 
 BINARY  := anvil
-GO      := go1.26.0
+GO      := go
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE    := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")

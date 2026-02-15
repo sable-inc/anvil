@@ -120,6 +120,12 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newKBCmd())
 	root.AddCommand(newConfigCmd())
 	root.AddCommand(newRawAPICmd())
+	root.AddCommand(newDeployCmd())
+	root.AddCommand(newLivekitCmd())
+	root.AddCommand(newForgeCmd())
+	root.AddCommand(newVideoCmd())
+	root.AddCommand(newMCPCmd())
+	root.AddCommand(newCompletionCmd())
 
 	return root
 }

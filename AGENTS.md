@@ -87,6 +87,81 @@ if api.IsNotFound(err) {
 | **configascode** | YAML DSL validation/conversion | Nothing (leaf) |
 | **mcp** | MCP protocol | commands (reuses handlers) |
 
+## Operational Commands (Phase 5)
+
+### PublicID Resolution
+
+Deploy and LiveKit endpoints use `publicId` (format: `org_xxx`) as path params, not the integer `orgId` used by CRUD commands. The `App.RequirePublicID(ctx)` helper handles both:
+- Direct: `--org org_abc123` passes through
+- Numeric: `--org 28` resolves via `GET /organizations/28` API lookup
+
+### Deploy Commands
+
+`deploy.go` — 7 subcommands for deployment management. All require `--org` with publicId.
+
+| Command | API | Notes |
+|---------|-----|-------|
+| `deploy trigger` | `POST /organizations/{publicId}/deploy` | `--watch` polls until succeeded/failed |
+| `deploy rollback` | `POST /organizations/{publicId}/rollback` | |
+| `deploy create` | `POST /organizations/{publicId}/create-deployment` | |
+| `deploy history` | `GET /organizations/{publicId}/deploy-history` | |
+| `deploy delete` | `DELETE /organizations/{publicId}/deployment` | |
+| `deploy update-secrets` | `POST /organizations/{publicId}/update-secrets` | |
+| `deploy pin-forge` | `PUT /organizations/{publicId}/pin-forge-version` | `--forge-version` required |
+
+### LiveKit Commands
+
+`livekit.go` — 14 subcommands in nested structure. All require `--org` with publicId. Optional `--livekit-url`, `--livekit-api-key`, `--livekit-api-secret` credential overrides on parent command (sent as `x-livekit-*` headers via `*WithHeaders` client methods).
+
+**Sessions group** (`anvil livekit sessions ...`):
+
+| Command | API |
+|---------|-----|
+| `sessions list` | `GET /.../livekit/sessions` |
+| `sessions get <room>` | `GET /.../livekit/sessions/{room}` |
+| `sessions close <room>` | `DELETE /.../livekit/sessions/{room}` |
+| `sessions remove-participant` | `DELETE /.../participants/{identity}` |
+| `sessions mute` | `POST /.../participants/{identity}/mute` |
+
+**Agent group** (`anvil livekit agent ...`):
+
+| Command | API |
+|---------|-----|
+| `agent list` | `GET /.../livekit/agents` |
+| `agent status` | `GET /.../livekit/agent/status` |
+| `agent versions` | `GET /.../livekit/agent/versions` |
+| `agent logs` | `GET /.../livekit/agent/logs` |
+| `agent secrets list` | `GET /.../livekit/agent/secrets` |
+| `agent secrets set` | `POST /.../livekit/agent/secrets` |
+| `agent secrets delete` | `DELETE /.../livekit/agent/secrets/{name}` |
+| `agent restart` | `POST /.../livekit/agent/restart` |
+| `agent delete` | `DELETE /.../livekit/agent` |
+
+### Forge Commands
+
+`forge.go` — 4 subcommands for forge version management. Global admin endpoints (no `--org` needed).
+
+| Command | API |
+|---------|-----|
+| `forge versions` | `GET /forge-versions` |
+| `forge branches` | `GET /forge-branches` |
+| `forge commits <branch>` | `GET /forge-commits?branch=<branch>` |
+| `forge validate <ref>` | `POST /forge-validate-ref` |
+
+### Video Commands
+
+`video.go` — 3 subcommands for video processing. `--watch` on generate commands polls job status.
+
+| Command | API |
+|---------|-----|
+| `video generate-moment` | `POST /video-processing/moment/start` |
+| `video generate-journey` | `POST /video-processing/journey/start` |
+| `video job-status <jobId>` | `GET /video-processing/jobs/{jobId}` |
+
+### Async Polling (`output/spinner.go`)
+
+Generic `Poll(ctx, w, PollConfig)` mechanism used by `deploy trigger --watch` and video `--watch` commands. Configurable interval, timeout, status callback.
+
 ## Config-as-Code System
 
 The `configascode` package provides a local config management engine:
@@ -116,6 +191,53 @@ config:
   name: "My Agent"
   environment: "production"
   # ... full AgentConfig fields
+```
+
+## MCP Server (Phase 6)
+
+### Architecture
+
+`internal/mcp/server.go` — Single-file MCP server using `mark3labs/mcp-go`. The `Handler` struct holds an `*api.Client` and default `orgID`, providing tool handlers that delegate to the sable-api.
+
+**Transport**: stdio (JSON-RPC 2.0 over stdin/stdout). stdout is the transport — all logging goes to stderr.
+
+**Tool naming**: `snake_case`, `verb_noun` pattern (e.g., `list_agents`, `create_journey`, `check_health`).
+
+### Tools (28 total)
+
+| Domain | Tools |
+|--------|-------|
+| **Agents** (5) | `list_agents`, `get_agent`, `create_agent`, `update_agent`, `delete_agent` |
+| **Journeys** (5) | `list_journeys`, `get_journey`, `create_journey`, `update_journey`, `delete_journey` |
+| **KB** (6) | `list_knowledge_base`, `get_knowledge_base_item`, `search_knowledge_base`, `import_knowledge_base_url`, `delete_knowledge_base_item`, `sync_knowledge_base_item` |
+| **Config** (2) | `list_configs`, `get_config` |
+| **Deploy** (3) | `get_deploy_history`, `trigger_deploy`, `rollback_deploy` |
+| **Transcripts** (2) | `list_transcripts`, `get_transcript` |
+| **Analytics** (2) | `get_session_analytics`, `get_stage_analytics` |
+| **Utilities** (3) | `check_health`, `get_connection_details`, `raw_api_request` |
+
+### Key patterns
+
+- **JSON passthrough**: Handlers decode API responses as `json.RawMessage` and return as text content — no re-serialization.
+- **Org context**: `optString(req, "org_id", h.orgID)` falls back to configured default. Mutation endpoints include `orgId` in request body via `setBodyOrgID()`. Read endpoints use `?orgId=X` query param via `withOrgQuery()`.
+- **Error handling**: `errResult()` returns `isError: true` with actionable messages guiding the LLM to recovery tools.
+- **Env var overrides**: `ANVIL_TOKEN` and `ANVIL_API_URL` environment variables for MCP config (since MCP clients can't pass CLI flags).
+
+### MCP Client Configuration
+
+```json
+{
+  "mcpServers": {
+    "anvil": {
+      "command": "anvil",
+      "args": ["mcp", "serve"],
+      "env": {
+        "ANVIL_TOKEN": "svc_your_token_here",
+        "ANVIL_API_URL": "http://localhost:8080"
+      }
+    }
+  }
+}
 ```
 
 ## Adding a New Command

@@ -42,31 +42,46 @@ func NewClientWithDoer(baseURL string, doer Doer) *Client {
 
 // Get performs a GET request and decodes the JSON response into v.
 func (c *Client) Get(ctx context.Context, path string, v any) error {
-	return c.do(ctx, http.MethodGet, path, nil, v)
+	return c.doWithHeaders(ctx, http.MethodGet, path, nil, nil, v)
 }
 
 // Post performs a POST request with a JSON body and decodes the response into v.
 func (c *Client) Post(ctx context.Context, path string, body, v any) error {
-	return c.do(ctx, http.MethodPost, path, body, v)
+	return c.doWithHeaders(ctx, http.MethodPost, path, body, nil, v)
 }
 
 // Put performs a PUT request with a JSON body and decodes the response into v.
 func (c *Client) Put(ctx context.Context, path string, body, v any) error {
-	return c.do(ctx, http.MethodPut, path, body, v)
+	return c.doWithHeaders(ctx, http.MethodPut, path, body, nil, v)
 }
 
 // Patch performs a PATCH request with a JSON body and decodes the response into v.
 func (c *Client) Patch(ctx context.Context, path string, body, v any) error {
-	return c.do(ctx, http.MethodPatch, path, body, v)
+	return c.doWithHeaders(ctx, http.MethodPatch, path, body, nil, v)
 }
 
 // Delete performs a DELETE request and decodes the response into v.
 func (c *Client) Delete(ctx context.Context, path string, v any) error {
-	return c.do(ctx, http.MethodDelete, path, nil, v)
+	return c.doWithHeaders(ctx, http.MethodDelete, path, nil, nil, v)
 }
 
-// do executes an HTTP request, handles errors, and decodes the response.
-func (c *Client) do(ctx context.Context, method, path string, body, v any) error {
+// GetWithHeaders performs a GET with additional request headers.
+func (c *Client) GetWithHeaders(ctx context.Context, path string, headers map[string]string, v any) error {
+	return c.doWithHeaders(ctx, http.MethodGet, path, nil, headers, v)
+}
+
+// PostWithHeaders performs a POST with additional request headers.
+func (c *Client) PostWithHeaders(ctx context.Context, path string, body any, headers map[string]string, v any) error {
+	return c.doWithHeaders(ctx, http.MethodPost, path, body, headers, v)
+}
+
+// DeleteWithHeaders performs a DELETE with additional request headers.
+func (c *Client) DeleteWithHeaders(ctx context.Context, path string, headers map[string]string, v any) error {
+	return c.doWithHeaders(ctx, http.MethodDelete, path, nil, headers, v)
+}
+
+// doWithHeaders executes an HTTP request with optional extra headers.
+func (c *Client) doWithHeaders(ctx context.Context, method, path string, body any, headers map[string]string, v any) error {
 	url := c.baseURL + path
 
 	var bodyReader io.Reader
@@ -86,6 +101,9 @@ func (c *Client) do(ctx context.Context, method, path string, body, v any) error
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := c.doer.Do(req)
 	if err != nil {

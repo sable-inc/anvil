@@ -100,6 +100,59 @@ anvil transcript list                # List transcripts
 anvil transcript view <id>           # View transcript messages
 ```
 
+### Deployments
+
+```
+anvil deploy history --org org_xxx            # List deployment history
+anvil deploy trigger --org org_xxx            # Trigger a deployment
+anvil deploy trigger --org org_xxx --watch    # Trigger and poll until complete
+anvil deploy rollback --org org_xxx           # Rollback deployment
+anvil deploy create --org org_xxx             # Create initial deployment
+anvil deploy delete --org org_xxx             # Delete deployment
+anvil deploy update-secrets --org org_xxx     # Update deployment secrets
+anvil deploy pin-forge --org org_xxx --forge-version v1.0  # Pin forge version
+```
+
+### LiveKit
+
+```
+# Sessions
+anvil livekit sessions list --org org_xxx     # List active rooms
+anvil livekit sessions get <room> --org org_xxx
+anvil livekit sessions close <room> --org org_xxx
+
+# Agent management
+anvil livekit agent list --org org_xxx        # List agents
+anvil livekit agent status --org org_xxx      # Agent status
+anvil livekit agent versions --org org_xxx    # Agent versions
+anvil livekit agent logs --org org_xxx        # Agent logs
+anvil livekit agent restart --org org_xxx     # Restart agent
+anvil livekit agent delete --org org_xxx      # Delete agent
+
+# Agent secrets
+anvil livekit agent secrets list --org org_xxx
+anvil livekit agent secrets set --org org_xxx --secret KEY=VALUE
+anvil livekit agent secrets delete <name> --org org_xxx
+```
+
+### Forge (Version Management)
+
+```
+anvil forge versions                  # List forge versions
+anvil forge branches                  # List forge branches
+anvil forge commits main              # List commits on branch
+anvil forge validate main             # Validate a git ref
+```
+
+### Video Processing
+
+```
+anvil video generate-moment --video-url <url>         # Start moment generation
+anvil video generate-moment --video-url <url> --watch  # Generate and poll
+anvil video generate-journey --video-url <url>         # Start journey generation
+anvil video job-status <jobId>                         # Check job status
+```
+
 ### Utilities
 
 ```
@@ -138,18 +191,52 @@ anvil config push agent.yaml
 
 ## MCP Server
 
-Anvil includes an MCP server for AI coding assistants (Claude Code, Cursor, etc.):
+Anvil includes an MCP server (28 tools) for AI coding assistants (Claude Code, Cursor, etc.).
+
+### Setup
+
+Add to your MCP client config (e.g. `.mcp.json` or `claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "anvil": {
       "command": "anvil",
-      "args": ["mcp", "serve"]
+      "args": ["mcp", "serve"],
+      "env": {
+        "ANVIL_TOKEN": "svc_your_token_here",
+        "ANVIL_API_URL": "https://api.withsable.com"
+      }
     }
   }
 }
 ```
+
+Or use stored credentials (from `anvil auth login`):
+
+```json
+{
+  "mcpServers": {
+    "anvil": {
+      "command": "anvil",
+      "args": ["mcp", "serve", "--api-url", "https://api.withsable.com"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Domain | Tools |
+|--------|-------|
+| Agents | `list_agents`, `get_agent`, `create_agent`, `update_agent`, `delete_agent` |
+| Journeys | `list_journeys`, `get_journey`, `create_journey`, `update_journey`, `delete_journey` |
+| Knowledge Base | `list_knowledge_base`, `get_knowledge_base_item`, `search_knowledge_base`, `import_knowledge_base_url`, `delete_knowledge_base_item`, `sync_knowledge_base_item` |
+| Config | `list_configs`, `get_config` |
+| Deployments | `get_deploy_history`, `trigger_deploy`, `rollback_deploy` |
+| Transcripts | `list_transcripts`, `get_transcript` |
+| Analytics | `get_session_analytics`, `get_stage_analytics` |
+| Utilities | `check_health`, `get_connection_details`, `raw_api_request` |
 
 ## Development
 

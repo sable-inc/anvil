@@ -2,9 +2,11 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/sable-inc/anvil/internal/api"
 )
@@ -65,6 +67,35 @@ func (a *App) RequireAuth() (*api.Client, error) {
 		return nil, fmt.Errorf("not authenticated — run 'anvil auth login' first")
 	}
 	return a.RequireClient()
+}
+
+// RequirePublicID returns the org public ID (org_xxx format) or an error.
+// Deploy and LiveKit endpoints use publicId as a path parameter.
+// Accepts either a publicId directly (org_xxx) or a numeric orgId (resolves via API).
+func (a *App) RequirePublicID(ctx context.Context) (string, error) {
+	if a.OrgID == "" {
+		return "", fmt.Errorf("--org is required (use org public ID, e.g. org_xxx)")
+	}
+	if strings.HasPrefix(a.OrgID, "org_") {
+		return a.OrgID, nil
+	}
+	// Numeric orgId — look up the publicId via the organizations endpoint.
+	client, err := a.RequireAuth()
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		Organization struct {
+			PublicID string `json:"publicId"`
+		} `json:"organization"`
+	}
+	if err := client.Get(ctx, "/organizations/"+a.OrgID, &resp); err != nil {
+		return "", fmt.Errorf("resolving org publicId: %w", err)
+	}
+	if resp.Organization.PublicID == "" {
+		return "", fmt.Errorf("organization %s has no publicId", a.OrgID)
+	}
+	return resp.Organization.PublicID, nil
 }
 
 // WithOutput sets the standard output writer.

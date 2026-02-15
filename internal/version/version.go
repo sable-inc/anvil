@@ -1,7 +1,10 @@
 // Package version provides build-time version information injected via ldflags.
 package version
 
-import "fmt"
+import (
+	"fmt"
+	"runtime"
+)
 
 // These variables are set at build time via -ldflags.
 var (
@@ -12,5 +15,6 @@ var (
 
 // Info returns a formatted version string.
 func Info() string {
-	return fmt.Sprintf("anvil %s (commit: %s, built: %s)", Version, Commit, Date)
+	return fmt.Sprintf("anvil %s (commit: %s, built: %s, %s/%s)",
+		Version, Commit, Date, runtime.GOOS, runtime.GOARCH)
 }
