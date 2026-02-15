@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosec
+    - revive
+    - gocyclo
+    - misspell
+    - ineffassign
+
+  settings:
+    gocyclo:
+      min-complexity: 15
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+        - name: unused-parameter
+          disabled: true
+        - name: var-naming
+          disabled: true
+
+  exclusions:
+    paths:
+      - "api/" # generated code
+    rules:
+      - linters: [revive]
+        text: "avoid meaningless package names"
+      - linters: [revive]
+        text: "avoid package names that conflict"
+      - linters: [revive]
+        text: "exported method .* should have comment"
+        path: "internal/"
