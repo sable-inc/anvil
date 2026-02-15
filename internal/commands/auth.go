@@ -119,10 +119,16 @@ func newAuthStatusCmd() *cobra.Command {
 			}
 
 			// /agents requires auth — if this fails with 401, the token is invalid.
+			// A 400 "must provide orgId" means auth succeeded but the user is a Sable admin.
 			var agents []any
 			if err := client.Get(cmd.Context(), "/agents", &agents); err != nil {
 				if _, ok := api.As[*api.UnauthorizedError](err); ok {
 					return fmt.Errorf("token is invalid or expired — run 'anvil auth login' to re-authenticate")
+				}
+				if apiErr, ok := api.As[*api.ResponseError](err); ok && apiErr.StatusCode == 400 {
+					// 400 means auth passed but endpoint needs orgId — token is valid.
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), "Authenticated. API is reachable and token is valid. (Sable admin — use --org to scope commands.)")
+					return err
 				}
 				return fmt.Errorf("auth check failed: %w", err)
 			}
