@@ -2,17 +2,84 @@
 
 Command-line interface and MCP server for the [Sable](https://withsable.com) AI voice agent platform.
 
-## Install
+## Quick Start (2 minutes)
 
 ```bash
-# From source
+# 1. Install
 go install github.com/sable-inc/anvil/cmd/anvil@latest
 
-# Or build locally
+# 2. Authenticate
+anvil auth login --token svc_your_token_here
+
+# 3. Set your default org
+mkdir -p ~/.config/anvil
+cat > ~/.config/anvil/config.yaml << 'EOF'
+default_org: "your-org"
+api_url: "https://api.withsable.com"
+EOF
+
+# 4. Set up shell completions (zsh)
+echo 'source <(anvil completion zsh)' >> ~/.zshrc
+source ~/.zshrc
+
+# 5. Verify
+anvil auth status
+anvil agent list
+```
+
+## Install
+
+### Option 1: Go Install (recommended for engineers with Go)
+
+```bash
+go install github.com/sable-inc/anvil/cmd/anvil@latest
+```
+
+This puts the `anvil` binary in `$GOPATH/bin` (usually `~/go/bin`). Make sure that's in your `$PATH`:
+
+```bash
+# Add to your shell profile if not already there
+export PATH="$HOME/go/bin:$PATH"
+```
+
+### Option 2: Download Binary (no Go required)
+
+Download the latest release from [GitHub Releases](https://github.com/sable-inc/anvil/releases):
+
+**macOS (Apple Silicon):**
+```bash
+curl -sL https://github.com/sable-inc/anvil/releases/latest/download/anvil_darwin_arm64.tar.gz | tar xz
+sudo mv anvil /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -sL https://github.com/sable-inc/anvil/releases/latest/download/anvil_darwin_amd64.tar.gz | tar xz
+sudo mv anvil /usr/local/bin/
+```
+
+**Linux (amd64):**
+```bash
+curl -sL https://github.com/sable-inc/anvil/releases/latest/download/anvil_linux_amd64.tar.gz | tar xz
+sudo mv anvil /usr/local/bin/
+```
+
+Or download manually from the [Releases page](https://github.com/sable-inc/anvil/releases).
+
+### Option 3: Build from Source
+
+```bash
 git clone https://github.com/sable-inc/anvil.git
 cd anvil
 make build
-./bin/anvil --help
+sudo mv bin/anvil /usr/local/bin/
+```
+
+### Verify Installation
+
+```bash
+anvil version
+# anvil v0.1.0 (commit: abc1234, built: 2026-02-14T..., darwin/arm64)
 ```
 
 ## Authentication
@@ -20,14 +87,17 @@ make build
 Anvil authenticates with sable-api using a service token:
 
 ```bash
-# Set your token
+# Store your token (one-time)
 anvil auth login --token svc_your_token_here
 
-# Verify
-anvil auth whoami
+# Verify it works
+anvil auth whoami    # shows stored token info
+anvil auth status    # verifies API connectivity
 ```
 
-Tokens are stored in `~/.config/anvil/credentials.json`.
+Credentials are stored in `~/.config/anvil/credentials.json` (file permissions: `0600`).
+
+To get a service token, ask your team admin or generate one in the Sable Platform dashboard.
 
 ## Configuration
 
@@ -39,11 +109,68 @@ api_url: "https://api.withsable.com"
 format: "table"
 ```
 
-Override with flags:
+Override any setting with flags:
 
 ```bash
 anvil --org other-org --format json agent list
 ```
+
+| Setting | Flag | Config Key | Description |
+|---------|------|-----------|-------------|
+| Organization | `--org` | `default_org` | Default org for all commands |
+| API URL | `--api-url` | `api_url` | Sable API base URL |
+| Output format | `--format` | `format` | `table`, `json`, or `yaml` |
+| No color | `--no-color` | — | Disable colored output |
+| Verbose | `--verbose` | — | Enable debug logging |
+
+## Shell Completions
+
+Anvil has dynamic tab completions that suggest real resource names from the live API.
+
+### Setup (one-time, permanent)
+
+**Zsh** (default on macOS):
+```bash
+echo 'source <(anvil completion zsh)' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Bash:**
+```bash
+echo 'source <(anvil completion bash)' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Fish:**
+```bash
+anvil completion fish > ~/.config/fish/completions/anvil.fish
+```
+
+**PowerShell:**
+```powershell
+anvil completion powershell >> $PROFILE
+```
+
+### What You Get
+
+After setup, press `TAB` anywhere:
+
+```
+anvil <TAB>                      # all subcommands
+anvil agent get <TAB>            # suggests agent slugs + IDs from API
+anvil journey delete <TAB>       # suggests journey slugs + IDs
+anvil kb sync <TAB>              # suggests KB item IDs with names
+anvil config pull <TAB>          # suggests config version IDs
+anvil connect <TAB>              # suggests agent slugs
+anvil --format <TAB>             # suggests table, json, yaml
+```
+
+Completions fetch live data from the API using your stored token. If you're not authenticated, it gracefully shows no suggestions (no errors).
+
+### FAQ
+
+**Do I need to regenerate completions when anvil or my shell updates?**
+No. The `source <(anvil completion ...)` pattern re-generates on every new shell session automatically. For Fish, re-run the file write command after updating anvil if new commands were added.
 
 ## Commands
 
@@ -161,10 +288,6 @@ anvil health --db                    # Include database health
 anvil connect <agent-slug>           # Get LiveKit connection details
 anvil api GET /agents                # Raw API request
 anvil api POST /agents -d '{"name":"test"}'
-anvil auth login --token <token>     # Store credentials
-anvil auth logout                    # Clear credentials
-anvil auth whoami                    # Show stored token
-anvil auth status                    # Verify connectivity
 anvil version                        # Print version info
 ```
 
@@ -189,13 +312,13 @@ anvil config diff agent.yaml --id <config-id>
 anvil config push agent.yaml
 ```
 
-## MCP Server
+## MCP Server (for AI Assistants)
 
-Anvil includes an MCP server (28 tools) for AI coding assistants (Claude Code, Cursor, etc.).
+Anvil includes an MCP server (28 tools) for AI coding assistants like Claude Code, Cursor, Windsurf, etc. This lets your AI assistant manage Sable resources directly.
 
-### Setup
+### Claude Code Setup
 
-Add to your MCP client config (e.g. `.mcp.json` or `claude_desktop_config.json`):
+Add to `.mcp.json` in your project root:
 
 ```json
 {
@@ -212,7 +335,7 @@ Add to your MCP client config (e.g. `.mcp.json` or `claude_desktop_config.json`)
 }
 ```
 
-Or use stored credentials (from `anvil auth login`):
+Or if you've already run `anvil auth login`, use stored credentials:
 
 ```json
 {
@@ -224,6 +347,10 @@ Or use stored credentials (from `anvil auth login`):
   }
 }
 ```
+
+### Cursor / Windsurf Setup
+
+Same JSON format — add to your editor's MCP settings file.
 
 ### Available Tools
 
@@ -237,6 +364,38 @@ Or use stored credentials (from `anvil auth login`):
 | Transcripts | `list_transcripts`, `get_transcript` |
 | Analytics | `get_session_analytics`, `get_stage_analytics` |
 | Utilities | `check_health`, `get_connection_details`, `raw_api_request` |
+
+## Releasing New Versions
+
+Anvil uses [goreleaser](https://goreleaser.com/) with GitHub Actions for automated releases.
+
+### Creating a Release
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+GitHub Actions will automatically:
+1. Build binaries for Linux, macOS, and Windows (amd64 + arm64)
+2. Create a GitHub Release with downloadable archives
+3. Generate checksums and a changelog
+
+Team members can then upgrade via:
+```bash
+# If installed via go install
+go install github.com/sable-inc/anvil/cmd/anvil@latest
+
+# If installed via binary download
+# Download the new version from the Releases page
+```
+
+### Snapshot Build (local testing)
+
+```bash
+goreleaser --snapshot --clean
+ls dist/
+```
 
 ## Development
 
@@ -254,3 +413,9 @@ Requires:
 - Go 1.26+
 - golangci-lint v2 (for `make lint`)
 - Running sable-api instance (for `make generate`)
+
+## CI/CD
+
+GitHub Actions runs automatically:
+- **CI** (`.github/workflows/ci.yml`): build + test + lint on every push and PR
+- **Release** (`.github/workflows/release.yml`): goreleaser on version tags (`v*`)
