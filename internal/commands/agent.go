@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -33,6 +35,7 @@ func newAgentCmd() *cobra.Command {
 	cmd.AddCommand(newAgentCreateCmd())
 	cmd.AddCommand(newAgentUpdateCmd())
 	cmd.AddCommand(newAgentDeleteCmd())
+	cmd.AddCommand(newAgentPullConfigCmd())
 	return cmd
 }
 
@@ -192,6 +195,61 @@ func newAgentUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Agent name")
 	cmd.Flags().StringVar(&slug, "slug", "", "Agent slug")
 	cmd.Flags().StringVar(&status, "status", "", "Agent status")
+	return cmd
+}
+
+func newAgentPullConfigCmd() *cobra.Command {
+	var outFile string
+
+	cmd := &cobra.Command{
+		Use:               "pull-config <agentId|publicId|slug>",
+		Short:             "Download the published config for an agent",
+		Long:              "Fetches the published agent config by ID, public ID, or slug.\nUse -o to write to a file for local development.",
+		Example:           "  anvil agent pull-config agt_eNVj4PXnHSTSLyJYdojjw -o agent.json",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAgents,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			a := AppFrom(cmd)
+			client, err := a.RequireClient()
+			if err != nil {
+				return err
+			}
+
+			var resp struct {
+				Config json.RawMessage `json:"config"`
+			}
+			if err := client.Get(cmd.Context(), "/agents/"+args[0]+"/published-config", &resp); err != nil {
+				return err
+			}
+
+			if resp.Config == nil {
+				return fmt.Errorf("no published config found for agent %s", args[0])
+			}
+
+			// Pretty-print the config JSON.
+			var pretty json.RawMessage
+			if err := json.Unmarshal(resp.Config, &pretty); err != nil {
+				return fmt.Errorf("parsing config: %w", err)
+			}
+			data, err := json.MarshalIndent(pretty, "", "  ")
+			if err != nil {
+				return fmt.Errorf("formatting config: %w", err)
+			}
+
+			if outFile != "" {
+				if err := os.WriteFile(outFile, append(data, '\n'), 0o644); err != nil { //nolint:gosec // user writes their own config
+					return fmt.Errorf("writing file: %w", err)
+				}
+				_, err = fmt.Fprintf(a.Out, "Config written to %s\n", outFile)
+				return err
+			}
+
+			_, err = fmt.Fprintf(a.Out, "%s\n", data)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&outFile, "output", "o", "", "Write config to file (default: stdout)")
 	return cmd
 }
 
