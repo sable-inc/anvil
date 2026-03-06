@@ -29,7 +29,13 @@ anvil agent list
 
 ## Install
 
-### Option 1: Go Install (recommended for engineers with Go)
+### Option 1: Homebrew (recommended)
+
+```bash
+brew install sable-inc/tap/anvil
+```
+
+### Option 2: Go Install
 
 ```bash
 go install github.com/sable-inc/anvil/cmd/anvil@latest
@@ -42,7 +48,7 @@ This puts the `anvil` binary in `$GOPATH/bin` (usually `~/go/bin`). Make sure th
 export PATH="$HOME/go/bin:$PATH"
 ```
 
-### Option 2: Download Binary (no Go required)
+### Option 3: Download Binary (no Go required)
 
 Download the latest release from [GitHub Releases](https://github.com/sable-inc/anvil/releases):
 
@@ -66,7 +72,7 @@ sudo mv anvil /usr/local/bin/
 
 Or download manually from the [Releases page](https://github.com/sable-inc/anvil/releases).
 
-### Option 3: Build from Source
+### Option 4: Build from Source
 
 ```bash
 git clone https://github.com/sable-inc/anvil.git
@@ -314,45 +320,41 @@ anvil config push agent.yaml
 
 ## MCP Server (for AI Assistants)
 
-Anvil includes an MCP server (28 tools) for AI coding assistants like Claude Code, Cursor, Windsurf, etc. This lets your AI assistant manage Sable resources directly.
+Anvil includes an MCP server (28 Sable tools + 5 HyperDX observability tools) for AI coding assistants like Claude Code, Cursor, Windsurf, etc.
 
-### Claude Code Setup
+### One-Time Setup
 
-Add to `.mcp.json` in your project root:
+```bash
+anvil auth login --token svc_your_token     # Sable API credentials
+anvil settings set-hyperdx hdx_your_key     # HyperDX API key (optional)
+```
+
+### Add to Claude Code
+
+```bash
+claude mcp add sable -s user -- anvil mcp serve
+```
+
+Or add to `.mcp.json` in your project root:
 
 ```json
 {
   "mcpServers": {
-    "anvil": {
+    "sable": {
       "command": "anvil",
-      "args": ["mcp", "serve"],
-      "env": {
-        "ANVIL_TOKEN": "svc_your_token_here",
-        "ANVIL_API_URL": "https://api.withsable.com"
-      }
+      "args": ["mcp", "serve"]
     }
   }
 }
 ```
 
-Or if you've already run `anvil auth login`, use stored credentials:
-
-```json
-{
-  "mcpServers": {
-    "anvil": {
-      "command": "anvil",
-      "args": ["mcp", "serve", "--api-url", "https://api.withsable.com"]
-    }
-  }
-}
-```
+No secrets in the config -- anvil reads credentials from `~/.config/anvil/`.
 
 ### Cursor / Windsurf Setup
 
-Same JSON format — add to your editor's MCP settings file.
+Same JSON format -- add to your editor's MCP settings file.
 
-### Available Tools
+### Sable Tools (28)
 
 | Domain | Tools |
 |--------|-------|
@@ -364,6 +366,18 @@ Same JSON format — add to your editor's MCP settings file.
 | Transcripts | `list_transcripts`, `get_transcript` |
 | Analytics | `get_session_analytics`, `get_stage_analytics` |
 | Utilities | `check_health`, `get_connection_details`, `raw_api_request` |
+
+### HyperDX Observability Tools (5, optional)
+
+Enabled when `anvil settings set-hyperdx <key>` has been run or `HYPERDX_API_KEY` env var is set.
+
+| Tool | Purpose |
+|------|---------|
+| `hdx_search_events` | Query logs/spans with aggregations, time ranges, filters, group-by |
+| `hdx_query_metrics` | Query metrics (Sum, Gauge, Histogram) |
+| `hdx_list_dashboards` | List HyperDX dashboards |
+| `hdx_get_dashboard` | Get dashboard with chart definitions |
+| `hdx_list_alerts` | List configured alerts |
 
 ## Releasing New Versions
 
@@ -380,14 +394,16 @@ GitHub Actions will automatically:
 1. Build binaries for Linux, macOS, and Windows (amd64 + arm64)
 2. Create a GitHub Release with downloadable archives
 3. Generate checksums and a changelog
+4. Publish to the Homebrew tap (`sable-inc/homebrew-tap`)
+5. Publish to the MCP Registry (discoverable in Claude Code / Cursor)
 
 Team members can then upgrade via:
 ```bash
-# If installed via go install
-go install github.com/sable-inc/anvil/cmd/anvil@latest
+# Homebrew
+brew upgrade anvil
 
-# If installed via binary download
-# Download the new version from the Releases page
+# Go install
+go install github.com/sable-inc/anvil/cmd/anvil@latest
 ```
 
 ### Snapshot Build (local testing)

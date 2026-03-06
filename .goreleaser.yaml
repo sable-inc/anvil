@@ -46,5 +46,25 @@ changelog:
       - "^test:"
       - "^chore:"
 
+homebrew_casks:
+  - name: anvil
+    homepage: "https://github.com/sable-inc/anvil"
+    description: "CLI and MCP server for the Sable AI voice agent platform"
+    repository:
+      owner: sable-inc
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+
+mcp:
+  name: io.github.sable-inc/anvil
+  title: "Sable Platform + HyperDX Observability"
+  description: "Manage Sable AI voice agents, query HyperDX logs and metrics, and deploy — all from your IDE"
+  homepage: "https://github.com/sable-inc/anvil"
+  auth:
+    type: github-oidc
+  repository:
+    url: "https://github.com/sable-inc/anvil"
+    source: github
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

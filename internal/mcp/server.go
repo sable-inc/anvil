@@ -12,6 +12,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"github.com/sable-inc/anvil/internal/api"
+	"github.com/sable-inc/anvil/internal/hyperdx"
 	"github.com/sable-inc/anvil/internal/version"
 )
 
@@ -19,11 +20,23 @@ import (
 type Handler struct {
 	client *api.Client
 	orgID  string
+	hdx    *hyperdx.Client
+}
+
+// ServerOption configures the MCP server.
+type ServerOption func(*Handler)
+
+// WithHyperDX enables HyperDX observability tools on the MCP server.
+func WithHyperDX(c *hyperdx.Client) ServerOption {
+	return func(h *Handler) { h.hdx = c }
 }
 
 // NewServer creates a fully configured MCP server with all Sable tools registered.
-func NewServer(client *api.Client, orgID string) *server.MCPServer {
+func NewServer(client *api.Client, orgID string, opts ...ServerOption) *server.MCPServer {
 	h := &Handler{client: client, orgID: orgID}
+	for _, opt := range opts {
+		opt(h)
+	}
 
 	s := server.NewMCPServer(
 		"sable",
@@ -39,6 +52,7 @@ func NewServer(client *api.Client, orgID string) *server.MCPServer {
 	registerTranscriptTools(s, h)
 	registerAnalyticsTools(s, h)
 	registerUtilityTools(s, h)
+	registerHyperDXTools(s, h)
 
 	return s
 }

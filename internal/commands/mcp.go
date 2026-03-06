@@ -6,8 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sable-inc/anvil/internal/config"
+	"github.com/sable-inc/anvil/internal/hyperdx"
 	"github.com/sable-inc/anvil/internal/mcp"
 )
+
+const defaultHyperDXURL = "https://api.hyperdx.io"
 
 func newMCPCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -26,33 +30,30 @@ func newMCPServeCmd() *cobra.Command {
 		Short: "Start the MCP server over stdio",
 		Long: `Starts a JSON-RPC 2.0 MCP server over stdin/stdout.
 
-Add to your Claude Code or Cursor MCP configuration:
+After one-time setup (anvil auth login + anvil settings set-hyperdx),
+add to your Claude Code or Cursor MCP configuration:
 
   {
     "mcpServers": {
       "sable": {
         "command": "anvil",
-        "args": ["mcp", "serve"],
-        "env": {
-          "ANVIL_API_URL": "https://api.withsable.com",
-          "ANVIL_TOKEN": "svc_your_token"
-        }
+        "args": ["mcp", "serve"]
       }
     }
   }
 
-The server uses credentials from:
-  1. ANVIL_TOKEN / ANVIL_API_URL environment variables
-  2. ~/.config/anvil/credentials.json and config.yaml (from 'anvil auth login')
-  3. --org / --api-url flags on the parent command`,
+Or via CLI: claude mcp add sable -s user -- anvil mcp serve
+
+Credentials are resolved from (highest priority first):
+  1. Environment variables (ANVIL_TOKEN, ANVIL_API_URL, HYPERDX_API_KEY, HYPERDX_API_URL)
+  2. Config file (~/.config/anvil/config.yaml, set via 'anvil settings set-hyperdx')
+  3. Stored credentials (~/.config/anvil/credentials.json, set via 'anvil auth login')
+  4. CLI flags (--org, --api-url)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			a := AppFrom(cmd)
 
-			// MCP servers MUST NOT write to stdout (it's the transport).
-			// Redirect any verbose/error output to stderr.
 			a.Out = os.Stderr
 
-			// Allow env var overrides for token and API URL (common in MCP configs).
 			if envToken := os.Getenv("ANVIL_TOKEN"); envToken != "" && a.Token == "" {
 				a.Token = envToken
 			}
@@ -65,8 +66,38 @@ The server uses credentials from:
 				return fmt.Errorf("MCP server requires authentication: %w\nSet ANVIL_TOKEN env var or run 'anvil auth login' first", err)
 			}
 
-			s := mcp.NewServer(client, a.OrgID)
+			var opts []mcp.ServerOption
+
+			// Resolve HyperDX credentials: env vars > config file.
+			hdxKey, hdxURL := resolveHyperDX()
+			if hdxKey != "" {
+				if hdxURL == "" {
+					hdxURL = defaultHyperDXURL
+				}
+				opts = append(opts, mcp.WithHyperDX(hyperdx.NewClient(hdxURL, hdxKey)))
+				_, _ = fmt.Fprintf(os.Stderr, "HyperDX tools enabled (%s)\n", hdxURL)
+			}
+
+			s := mcp.NewServer(client, a.OrgID, opts...)
 			return mcp.Serve(s)
 		},
 	}
+}
+
+// resolveHyperDX returns the API key and URL, resolving each field independently:
+// env var > config file. This matches how root.go resolves apiURL and orgFlag.
+func resolveHyperDX() (apiKey, apiURL string) {
+	apiKey = os.Getenv("HYPERDX_API_KEY")
+	apiURL = os.Getenv("HYPERDX_API_URL")
+
+	cfg, _ := config.Load()
+	if cfg != nil {
+		if apiKey == "" {
+			apiKey = cfg.HyperDXAPIKey
+		}
+		if apiURL == "" {
+			apiURL = cfg.HyperDXAPIURL
+		}
+	}
+	return apiKey, apiURL
 }

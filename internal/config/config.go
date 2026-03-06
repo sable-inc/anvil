@@ -12,10 +12,12 @@ import (
 
 // Config represents the Anvil CLI configuration file.
 type Config struct {
-	DefaultOrg string               `yaml:"default_org"`
-	APIURL     string               `yaml:"api_url"`
-	Format     string               `yaml:"format"`
-	Orgs       map[string]OrgConfig `yaml:"orgs"`
+	DefaultOrg    string               `yaml:"default_org"`
+	APIURL        string               `yaml:"api_url"`
+	Format        string               `yaml:"format"`
+	Orgs          map[string]OrgConfig `yaml:"orgs"`
+	HyperDXAPIKey string               `yaml:"hyperdx_api_key,omitempty"`
+	HyperDXAPIURL string               `yaml:"hyperdx_api_url,omitempty"`
 }
 
 // OrgConfig stores per-organization overrides.

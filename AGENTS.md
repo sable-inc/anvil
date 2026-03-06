@@ -197,13 +197,13 @@ config:
 
 ### Architecture
 
-`internal/mcp/server.go` — Single-file MCP server using `mark3labs/mcp-go`. The `Handler` struct holds an `*api.Client` and default `orgID`, providing tool handlers that delegate to the sable-api.
+`internal/mcp/server.go` — MCP server using `mark3labs/mcp-go`. The `Handler` struct holds an `*api.Client`, default `orgID`, and optional `*hyperdx.Client`, providing tool handlers that delegate to sable-api and HyperDX.
 
 **Transport**: stdio (JSON-RPC 2.0 over stdin/stdout). stdout is the transport — all logging goes to stderr.
 
-**Tool naming**: `snake_case`, `verb_noun` pattern (e.g., `list_agents`, `create_journey`, `check_health`).
+**Tool naming**: `snake_case`, `verb_noun` pattern (e.g., `list_agents`, `create_journey`, `check_health`). HyperDX tools prefixed with `hdx_`.
 
-### Tools (28 total)
+### Sable Tools (28)
 
 | Domain | Tools |
 |--------|-------|
@@ -216,28 +216,55 @@ config:
 | **Analytics** (2) | `get_session_analytics`, `get_stage_analytics` |
 | **Utilities** (3) | `check_health`, `get_connection_details`, `raw_api_request` |
 
+### HyperDX Observability Tools (5, optional)
+
+Enabled when `HYPERDX_API_KEY` env var is set or `hyperdx_api_key` is configured via `anvil settings set-hyperdx`. These tools talk directly to the HyperDX API (not through sable-api).
+
+| Tool | Purpose |
+|------|---------|
+| `hdx_search_events` | Query logs/spans with aggregations, filters, time ranges, group-by |
+| `hdx_query_metrics` | Query metrics (Sum, Gauge, Histogram) with aggregations |
+| `hdx_list_dashboards` | List all HyperDX dashboards |
+| `hdx_get_dashboard` | Get dashboard with chart definitions |
+| `hdx_list_alerts` | List configured alerts |
+
+**Architecture**: `internal/hyperdx/client.go` provides the HTTP client (Bearer auth), `internal/mcp/hyperdx.go` registers the tools. The `Handler` gets an optional `*hyperdx.Client` via `WithHyperDX()` server option.
+
+**Time range shorthand**: `hdx_search_events` and `hdx_query_metrics` accept `time_range` param: `5m`, `15m`, `1h`, `6h`, `1d`, `7d`, `30d`.
+
 ### Key patterns
 
 - **JSON passthrough**: Handlers decode API responses as `json.RawMessage` and return as text content — no re-serialization.
 - **Org context**: `optString(req, "org_id", h.orgID)` falls back to configured default. Mutation endpoints include `orgId` in request body via `setBodyOrgID()`. Read endpoints use `?orgId=X` query param via `withOrgQuery()`.
 - **Error handling**: `errResult()` returns `isError: true` with actionable messages guiding the LLM to recovery tools.
-- **Env var overrides**: `ANVIL_TOKEN` and `ANVIL_API_URL` environment variables for MCP config (since MCP clients can't pass CLI flags).
+- **Credential resolution** (highest priority first):
+  1. Env vars (`ANVIL_TOKEN`, `ANVIL_API_URL`, `HYPERDX_API_KEY`, `HYPERDX_API_URL`)
+  2. Config file (`~/.config/anvil/config.yaml`, set via `anvil settings set-hyperdx`)
+  3. Stored credentials (`~/.config/anvil/credentials.json`, set via `anvil auth login`)
 
 ### MCP Client Configuration
+
+After one-time setup (`anvil auth login` + `anvil settings set-hyperdx <key>`), no secrets needed in the MCP config:
 
 ```json
 {
   "mcpServers": {
-    "anvil": {
+    "sable": {
       "command": "anvil",
-      "args": ["mcp", "serve"],
-      "env": {
-        "ANVIL_TOKEN": "svc_your_token_here",
-        "ANVIL_API_URL": "http://localhost:8080"
-      }
+      "args": ["mcp", "serve"]
     }
   }
 }
+```
+
+Or via CLI: `claude mcp add sable -s user -- anvil mcp serve`
+
+### Installation
+
+```bash
+brew install sable-inc/tap/anvil    # Install via Homebrew
+anvil auth login                      # Configure sable-api credentials
+anvil settings set-hyperdx <key>      # Configure HyperDX (optional)
 ```
 
 ## Adding a New Command

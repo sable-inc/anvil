@@ -17,6 +17,7 @@ func newSettingsCmd() *cobra.Command {
 
 	cmd.AddCommand(newSettingsShowCmd())
 	cmd.AddCommand(newSettingsSetCmd())
+	cmd.AddCommand(newSettingsSetHyperDXCmd())
 	cmd.AddCommand(newSettingsPathCmd())
 	return cmd
 }
@@ -38,12 +39,15 @@ func newSettingsShowCmd() *cobra.Command {
 				if val == "" {
 					val = "(not set)"
 				}
-				_, _ = fmt.Fprintf(w, "  %-12s %s    # %s\n", key+":", val, desc)
+				_, _ = fmt.Fprintf(w, "  %-18s %s    # %s\n", key+":", val, desc)
 			}
 
 			show("api_url", cfg.APIURL, "Sable API base URL")
 			show("default_org", cfg.DefaultOrg, "Default --org value")
 			show("format", cfg.Format, "Output format (table|json|yaml)")
+
+			show("hyperdx_api_key", maskKey(cfg.HyperDXAPIKey), "HyperDX API key")
+			show("hyperdx_api_url", cfg.HyperDXAPIURL, "HyperDX API URL")
 			return nil
 		},
 	}
@@ -93,6 +97,61 @@ Available keys:
 			return err
 		},
 	}
+}
+
+func newSettingsSetHyperDXCmd() *cobra.Command {
+	var apiURL string
+
+	cmd := &cobra.Command{
+		Use:   "set-hyperdx <api-key>",
+		Short: "Configure HyperDX API credentials",
+		Long: `Stores a HyperDX personal API key for the MCP server.
+
+After running this, the MCP server will automatically enable HyperDX
+observability tools (hdx_search_events, hdx_query_metrics, etc.)
+without requiring environment variables.
+
+Get your API key from: https://www.hyperdx.io/team → API Keys`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return fmt.Errorf("loading config: %w", err)
+			}
+
+			cfg.HyperDXAPIKey = args[0]
+			if apiURL != "" {
+				cfg.HyperDXAPIURL = apiURL
+			}
+
+			if err := config.Save(cfg); err != nil {
+				return fmt.Errorf("saving config: %w", err)
+			}
+
+			w := cmd.OutOrStdout()
+			_, _ = fmt.Fprintf(w, "HyperDX API key saved to %s\n", config.Path())
+			if apiURL != "" {
+				_, _ = fmt.Fprintf(w, "HyperDX API URL: %s\n", apiURL)
+			}
+			_, _ = fmt.Fprintln(w, "MCP server will now include HyperDX tools on next start.")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&apiURL, "api-url", "", "HyperDX API URL (default: https://api.hyperdx.io)")
+	return cmd
+}
+
+const maskVisibleChars = 4
+
+func maskKey(key string) string {
+	if key == "" {
+		return ""
+	}
+	if len(key) <= maskVisibleChars*2 {
+		return "****"
+	}
+	return key[:maskVisibleChars] + "..." + key[len(key)-maskVisibleChars:]
 }
 
 func newSettingsPathCmd() *cobra.Command {
