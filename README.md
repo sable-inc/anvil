@@ -329,9 +329,13 @@ anvil auth login --token svc_your_token     # Sable API credentials
 anvil settings set-hyperdx hdx_your_key     # HyperDX API key (optional)
 ```
 
-### Add to Cursor (one-click)
+### Add to Cursor
 
-[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=sable&config=eyJjb21tYW5kIjoiYW52aWwiLCJhcmdzIjpbIm1jcCIsInNlcnZlIl19)
+Paste this in your browser to install with one click:
+
+```
+cursor://anysphere.cursor-deeplink/mcp/install?name=sable&config=eyJjb21tYW5kIjoiYW52aWwiLCJhcmdzIjpbIm1jcCIsInNlcnZlIl19
+```
 
 Or add manually to `.cursor/mcp.json`:
 
