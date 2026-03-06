@@ -50,6 +50,12 @@ homebrew_casks:
   - name: anvil
     homepage: "https://github.com/sable-inc/anvil"
     description: "CLI and MCP server for the Sable AI voice agent platform"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/anvil"]
+          end
     repository:
       owner: sable-inc
       name: homebrew-tap
