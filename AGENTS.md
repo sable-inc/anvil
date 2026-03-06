@@ -246,6 +246,12 @@ Enabled when `HYPERDX_API_KEY` env var is set or `hyperdx_api_key` is configured
 
 After one-time setup (`anvil auth login` + `anvil settings set-hyperdx <key>`), no secrets needed in the MCP config:
 
+**Cursor** (one-click): `cursor://anysphere.cursor-deeplink/mcp/install?name=sable&config=eyJjb21tYW5kIjoiYW52aWwiLCJhcmdzIjpbIm1jcCIsInNlcnZlIl19`
+
+**Claude Code**: `claude mcp add sable -s user -- anvil mcp serve`
+
+**Manual JSON** (any editor):
+
 ```json
 {
   "mcpServers": {
@@ -256,8 +262,6 @@ After one-time setup (`anvil auth login` + `anvil settings set-hyperdx <key>`), 
   }
 }
 ```
-
-Or via CLI: `claude mcp add sable -s user -- anvil mcp serve`
 
 ### Installation
 

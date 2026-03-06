@@ -329,13 +329,11 @@ anvil auth login --token svc_your_token     # Sable API credentials
 anvil settings set-hyperdx hdx_your_key     # HyperDX API key (optional)
 ```
 
-### Add to Claude Code
+### Add to Cursor (one-click)
 
-```bash
-claude mcp add sable -s user -- anvil mcp serve
-```
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=sable&config=eyJjb21tYW5kIjoiYW52aWwiLCJhcmdzIjpbIm1jcCIsInNlcnZlIl19)
 
-Or add to `.mcp.json` in your project root:
+Or add manually to `.cursor/mcp.json`:
 
 ```json
 {
@@ -348,11 +346,17 @@ Or add to `.mcp.json` in your project root:
 }
 ```
 
+### Add to Claude Code
+
+```bash
+claude mcp add sable -s user -- anvil mcp serve
+```
+
 No secrets in the config -- anvil reads credentials from `~/.config/anvil/`.
 
-### Cursor / Windsurf Setup
+### Other Editors (Windsurf, etc.)
 
-Same JSON format -- add to your editor's MCP settings file.
+Add the same JSON config to your editor's MCP settings file.
 
 ### Sable Tools (28)
 
