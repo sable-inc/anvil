@@ -57,6 +57,28 @@ func registerHyperDXTools(s *server.MCPServer, h *Handler) {
 		mcp.WithString("granularity", mcp.Description("Time bucket size (e.g. '1 minute', '1 hour'). Omit for a single aggregated value.")),
 	), h.hdxQueryMetrics)
 
+	s.AddTool(mcp.NewTool("hdx_recent_logs",
+		mcp.WithDescription(
+			"Get recent log messages grouped by content. "+
+				"Returns the most frequent log messages with counts — use this to quickly understand what a service is doing. "+
+				"Equivalent to grouping by the log body field. "+
+				"Tip: combine with level filter (e.g. query='level:err') to see only errors.",
+		),
+		mcp.WithString("service", mcp.Description("Service name to filter (e.g. 'sable-api', 'sable-platform'). Leave empty for all services.")),
+		mcp.WithString("query", mcp.Description("Additional HyperDX search filter (e.g. 'level:err', 'span_name:deploy*'). Combined with service filter.")),
+		mcp.WithString("time_range", mcp.Description("Time range: 5m, 15m, 1h, 6h, 1d, 7d (default: 1h)")),
+	), h.hdxRecentLogs)
+
+	s.AddTool(mcp.NewTool("hdx_error_details",
+		mcp.WithDescription(
+			"Get a breakdown of errors across all services. "+
+				"Returns error messages, which service they come from, and the operation (span) that failed. "+
+				"Use this as the first tool when investigating production issues.",
+		),
+		mcp.WithString("service", mcp.Description("Filter to a specific service (e.g. 'sable-api'). Leave empty for all services.")),
+		mcp.WithString("time_range", mcp.Description("Time range: 5m, 15m, 1h, 6h, 1d, 7d (default: 1h)")),
+	), h.hdxErrorDetails)
+
 	s.AddTool(mcp.NewTool("hdx_list_dashboards",
 		mcp.WithDescription("Lists all HyperDX dashboards. Returns dashboard names, IDs, and tags."),
 	), h.hdxListDashboards)
@@ -155,6 +177,116 @@ func (h *Handler) hdxQuerySeries(ctx context.Context, req mcp.CallToolRequest, d
 	}
 
 	text := fmt.Sprintf("%s\nRows: %s\n\n%s", summary, rowCount, string(resp))
+	return mcp.NewToolResultText(text), nil
+}
+
+func (h *Handler) hdxRecentLogs(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	query := buildServiceQuery(optString(req, "service", ""), optString(req, "query", ""))
+	timeRange := optString(req, "time_range", "1h")
+	startMs, endMs := parseTimeRange(timeRange)
+
+	body := map[string]any{
+		"series": []any{
+			map[string]any{
+				"dataSource": "events",
+				"aggFn":      "count",
+				"field":      "",
+				"where":      query,
+				"groupBy":    []string{"body"},
+			},
+		},
+		"startTime": startMs,
+		"endTime":   endMs,
+	}
+
+	resp, err := h.hdx.Post(ctx, "/api/v1/charts/series", body)
+	if err != nil {
+		return hdxErrResult("Failed to fetch recent logs", err)
+	}
+	return formatLogResults(resp, "Recent logs", query, timeRange)
+}
+
+func (h *Handler) hdxErrorDetails(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	service := optString(req, "service", "")
+	timeRange := optString(req, "time_range", "1h")
+	startMs, endMs := parseTimeRange(timeRange)
+
+	baseQuery := buildServiceQuery(service, "level:err")
+
+	// Two series: group by body and group by span_name for a complete picture.
+	bodyQuery := map[string]any{
+		"series": []any{
+			map[string]any{
+				"dataSource": "events",
+				"aggFn":      "count",
+				"field":      "",
+				"where":      baseQuery,
+				"groupBy":    []string{"body", "service"},
+			},
+		},
+		"startTime": startMs,
+		"endTime":   endMs,
+	}
+	spanQuery := map[string]any{
+		"series": []any{
+			map[string]any{
+				"dataSource": "events",
+				"aggFn":      "count",
+				"field":      "",
+				"where":      baseQuery,
+				"groupBy":    []string{"span_name", "service"},
+			},
+		},
+		"startTime": startMs,
+		"endTime":   endMs,
+	}
+
+	bodyResp, err := h.hdx.Post(ctx, "/api/v1/charts/series", bodyQuery)
+	if err != nil {
+		return hdxErrResult("Failed to fetch error details", err)
+	}
+	spanResp, err := h.hdx.Post(ctx, "/api/v1/charts/series", spanQuery)
+	if err != nil {
+		return hdxErrResult("Failed to fetch error spans", err)
+	}
+
+	header := fmt.Sprintf("Error details (%s)", timeRange)
+	if service != "" {
+		header += " service=" + service
+	}
+
+	text := header + "\n\n--- Errors by message ---\n" + string(bodyResp) +
+		"\n\n--- Errors by operation ---\n" + string(spanResp)
+	return mcp.NewToolResultText(text), nil
+}
+
+// buildServiceQuery combines a service filter and an optional extra query.
+func buildServiceQuery(service, extra string) string {
+	parts := make([]string, 0, 2)
+	if service != "" {
+		parts = append(parts, "service:"+service)
+	}
+	if extra != "" {
+		parts = append(parts, extra)
+	}
+	return strings.Join(parts, " AND ")
+}
+
+// formatLogResults formats a chart/series response into a readable log summary.
+func formatLogResults(resp json.RawMessage, header, query, timeRange string) (*mcp.CallToolResult, error) {
+	var parsed struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	rowCount := "unknown"
+	if json.Unmarshal(resp, &parsed) == nil {
+		rowCount = strconv.Itoa(len(parsed.Data))
+	}
+
+	summary := header + " (" + timeRange + ")"
+	if query != "" {
+		summary += " where " + query
+	}
+	text := fmt.Sprintf("%s\nUnique messages: %s\n\n%s", summary, rowCount, string(resp))
 	return mcp.NewToolResultText(text), nil
 }
 
